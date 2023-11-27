@@ -53,7 +53,7 @@ void LocalEpoll::remove_epollfd(int epoll_fd, int fd) {
 
 /*
 ** Name: modify fd in epoll_fd function
-** Description: 
+** Description: 目前默认是ET，后续可以扩展TODO
 ** Author: wkxue
 ** Create time: 2023/11/23 19:01
 */
