@@ -53,14 +53,17 @@ void LocalEpoll::remove_epollfd(int epoll_fd, int fd) {
 
 /*
 ** Name: modify fd in epoll_fd function
-** Description: 目前默认是ET，后续可以扩展TODO
+** Description:
 ** Author: wkxue
 ** Create time: 2023/11/23 19:01
 */
-void LocalEpoll::modify_epollfd(int epoll_fd, int fd, int ev) {
+void LocalEpoll::modify_epollfd(int epoll_fd, int fd, int ev, int trig_mod) {
     epoll_event event;
     event.data.fd = fd;
-    event.events = ev | EPOLLET | EPOLLONESHOT | EPOLLRDHUP;
+    if (trig_mod == ET_MOD)
+        event.events = ev | EPOLLET | EPOLLRDHUP;
+    else 
+        event.events = ev | EPOLLRDHUP;
     epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
 }
 

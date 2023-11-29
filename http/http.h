@@ -72,7 +72,6 @@ private:
     void unmap();
 
     HTTP_CODE process_read();   // 主状态机处理请求报文
-    char *get_line();
     LINE_STATUS parse_line();   // 从状态机解析每一行
     HTTP_CODE parse_request_line(char *text);   // 解析http请求行
     HTTP_CODE parse_header(char *text);         // 解析http头部
@@ -117,16 +116,18 @@ private:
     char *doc_root;
     char *vhost;
     long vcontent_len;
-    char *vstr;
+    char *vcontent_str;
 
     char vwrite_buf[WRITE_BUF_SIZE];
     int vwrite_idx;
-    char vreal_file[FILENAME_LEN];
 
     struct stat vfile_stat;
+    char *vfile_addr;
+    char vreal_file[FILENAME_LEN];
+
     struct iovec viovec[2];
     int viovec_count;
-    char *vfile_addr;
+
     int vbyte_to_send;
     int vbyte_have_send;
 

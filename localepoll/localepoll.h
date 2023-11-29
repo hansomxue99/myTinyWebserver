@@ -23,7 +23,7 @@ public:
 
     void add_epollfd(int epoll_fd, int fd, bool one_shot, int trig_mod);
     void remove_epollfd(int epoll_fd, int fd);
-    void modify_epollfd(int epoll_fd, int fd, int ev);
+    void modify_epollfd(int epoll_fd, int fd, int ev, int trig_mod);
 };  
 
 #endif
