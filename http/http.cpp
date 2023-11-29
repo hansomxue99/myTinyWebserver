@@ -157,7 +157,6 @@ bool HTTP::http_read() {
             vread_idx += byte_read;
         }
     }
-    printf("%s\n", vread_buf);
     return true;
 }
 
