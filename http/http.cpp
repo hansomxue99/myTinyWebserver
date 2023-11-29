@@ -1,13 +1,4 @@
 #include "http.h"
-#include "../log/log.h"
-
-#include <string.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <sys/mman.h>
-
-#include <iostream>
-using namespace std;
 
 //定义http响应的一些状态信息
 const char *ok_200_title = "OK";
@@ -21,6 +12,8 @@ const char *error_404_form = "The requested file was not found on this server.\n
 const char *error_500_title = "Internal Error";
 const char *error_500_form = "There was an unusual problem serving the request file.\n";
 
+int HTTP::vepoll_fd = -1;  // 提供 veepoll_fd 的定义
+int HTTP::vuser_count = 0;  // 提供 vuser_count 的定义
 
 void HTTP::http_init() {
     vmethod = GET;
@@ -28,7 +21,7 @@ void HTTP::http_init() {
     vurl = 0;
     vversion = 0;
 
-    mysql = NULL;
+    // mysql = NULL;
     vlinger = false;
     cgi = 0;
     vhost = 0;
@@ -164,6 +157,7 @@ bool HTTP::http_read() {
             vread_idx += byte_read;
         }
     }
+    printf("%s\n", vread_buf);
     return true;
 }
 
@@ -189,22 +183,27 @@ HTTP::HTTP_CODE HTTP::process_read() {
     while ((vcheck_state == CHECK_STATE_CONTENT && line_status == LINE_OK) || (line_status = parse_line()) == LINE_OK) {
         text = get_line();
         vstart_line = vchecked_idx;   // start_line记录的是当前行的字符个数
-        LOG_INFO("%s", text);
+        // LOG_INFO("%s", text);
+        printf("====");
+        printf("%s\n", text);
 
         switch (vcheck_state)
         {
+        // 请求行
         case CHECK_STATE_REQUESTLINE:
             ret = parse_request_line(text);
             if (ret == BAD_REQUEST) return BAD_REQUEST;
             break;
+        // 头部字段
         case CHECK_STATE_HEADER:
             ret = parse_header(text);
             if (ret == BAD_REQUEST) return BAD_REQUEST;
-            else if (ret == GET_REQUEST)    ; //TODO
+            else if (ret == GET_REQUEST)    return do_request();
             break;
+        // 报文内容
         case CHECK_STATE_CONTENT:
             ret = parse_content(text);
-            if (ret == GET_REQUEST) ;   // TODO
+            if (ret == GET_REQUEST) do_request();
             line_status = LINE_OPEN;
             break;
         default:
@@ -271,22 +270,24 @@ HTTP::HTTP_CODE HTTP::parse_request_line(char *text) {
 
     // 解析请求类型
     char *method = text;
+    printf("method:%s\n", method);
     if (strcasecmp(method, "GET") == 0) {
         vmethod = GET;
     } else if (strcasecmp(method, "POST") == 0) {
         vmethod = POST;
-        // TODO
+        cgi = 1;
     } else {
         return BAD_REQUEST;
     }
 
-    // 解析HTTP版本
+    // 解析HTTP版本，仅支持http/1.1
     vversion = strpbrk(vurl, " \t");
     if (!vversion)  return BAD_REQUEST;
     *vversion++ = '\0';
     vversion += strspn(vurl, " \t");    // 至此，method,url,version分离
-    if (strcasecmp(vversion, "HTTP/1.1") == 0)  return BAD_REQUEST;
-
+    printf("vversion:%s\n", vversion);
+    printf("vurl:%s\n", vurl);
+    if (strcasecmp(vversion, "HTTP/1.1") != 0)  return BAD_REQUEST;
     // 解析URL
     if (strncasecmp(vurl, "http://", 7) == 0) {
         vurl += 7;
@@ -298,7 +299,7 @@ HTTP::HTTP_CODE HTTP::parse_request_line(char *text) {
     if (!vurl || vurl[0] != '/')    return BAD_REQUEST;
     // 根目录
     if (strlen(vurl) == 1) {
-        strcat(vurl, "home.html");  // 注意，这里将根目录固定了
+        strcat(vurl, "picture.html");  // 注意，这里将根目录固定了
     }
     vcheck_state = CHECK_STATE_HEADER;  // 转换check状态
     return NO_REQUEST;
@@ -346,7 +347,7 @@ HTTP::HTTP_CODE HTTP::parse_header(char *text) {
 HTTP::HTTP_CODE HTTP::parse_content(char *text) {
     if (vread_idx >= (vcontent_len + vchecked_idx)) {
         text[vcontent_len] = '\0';
-        vrequest_str = text;
+        vstr = text;
         return GET_REQUEST;
     }
     return NO_REQUEST;
@@ -358,7 +359,11 @@ HTTP::HTTP_CODE HTTP::parse_content(char *text) {
 ** Author: wkxue
 ** Create time: 2023/11/26 14:49
 */
-HTTP::HTTP_CODE HTTP::process_request() {
+#include "../log/locker.h"
+#include <fstream>
+map<string, string> users;
+MutexLocker m_lock;
+HTTP::HTTP_CODE HTTP::do_request() {
     // TODO
     return NO_REQUEST;
 }
@@ -452,7 +457,7 @@ bool HTTP::add_status_line(int status, const char *title) {
 }
 
 bool HTTP::add_header(int content_len) {
-    return add_content_length(content_len) && add_linger && add_blank_line();
+    return add_content_length(content_len) && add_linger() && add_blank_line();
 }
 
 bool HTTP::add_content_length(int content_len) {

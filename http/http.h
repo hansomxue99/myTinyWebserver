@@ -2,6 +2,7 @@
 #define HTTP_H
 
 #include "../localepoll/localepoll.h"
+#include "../log/log.h"
 
 #include <sys/types.h>
 #include <sys/unistd.h>
@@ -9,6 +10,13 @@
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <arpa/inet.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <sys/mman.h>
+
+#include <iostream>
+#include <map>
 
 class HTTP {
 public:
@@ -26,6 +34,7 @@ public:
         CONNECT,
         PATH
     };
+    // HTTP状态码
     enum HTTP_CODE {
         NO_REQUEST = 0,
         GET_REQUEST,
@@ -62,16 +71,15 @@ private:
     void http_init();
     void unmap();
 
-    HTTP_CODE process_read();
-    bool process_write(HTTP_CODE ret);
-    HTTP_CODE process_request();
-
+    HTTP_CODE process_read();   // 主状态机处理请求报文
     char *get_line();
-    LINE_STATUS parse_line();
-    HTTP_CODE parse_request_line(char *text);
-    HTTP_CODE parse_header(char *text);
-    HTTP_CODE parse_content(char *text);
+    LINE_STATUS parse_line();   // 从状态机解析每一行
+    HTTP_CODE parse_request_line(char *text);   // 解析http请求行
+    HTTP_CODE parse_header(char *text);         // 解析http头部
+    HTTP_CODE parse_content(char *text);        // 读取http内容
+    HTTP_CODE do_request();
 
+    bool process_write(HTTP_CODE ret);
     bool add_response(const char *format, ...);
     bool add_blank_line();
     bool add_linger();
@@ -85,7 +93,7 @@ public:
     static int vepoll_fd;
     static int vuser_count;
     int vstate;
-    MySQL *mysql;
+    // MySQL *mysql;
 
 private:
     int vsock_fd;
@@ -94,13 +102,13 @@ private:
     int log_close;
     int vepoll_mod;
 
-    long vchecked_idx;
-    long vread_idx;
-    char vread_buf[READ_BUF_SIZE];
-    int vstart_line;
+    CHECK_STATE vcheck_state;               // 主状态机的状态
+    long        vchecked_idx;               // read buf 中读取的位置
+    long        vread_idx;                  // read buf 中数据的最后一个字节的下一个位置
+    long        vstart_line;                // read buf 中已经解析的字符个数
+    char        vread_buf[READ_BUF_SIZE];   // 读取缓冲区
 
     METHOD vmethod;
-    CHECK_STATE vcheck_state;
     char *vurl;
     char *vversion;
 
@@ -109,7 +117,7 @@ private:
     char *doc_root;
     char *vhost;
     long vcontent_len;
-    char *vrequest_str;
+    char *vstr;
 
     char vwrite_buf[WRITE_BUF_SIZE];
     int vwrite_idx;

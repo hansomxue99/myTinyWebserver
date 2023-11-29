@@ -25,6 +25,7 @@ public:
 
     static void *flush_log_thread(void *args) {
         Log::get_instance()->async_write_log();
+        return (void*)0;
     }
 
     bool init(const char *vfile_name, int vlog_close, int vlog_bufsize, int vlog_maxlines, int vque_maxsize);
@@ -40,6 +41,7 @@ private:
             fputs(single_log.c_str(), log_fp);
             mutex.unlock();
         }
+        return (void*)0;
     }
 private:
     char            dir_name[128];      // 路径名
