@@ -8,7 +8,7 @@ else
 
 endif
 
-server: ./test_scripts/test_http.cpp ./localepoll/localepoll.cpp ./http/http.cpp ./log/log.cpp
+server: ./test_scripts/test_http.cpp ./localepoll/localepoll.cpp ./http/http.cpp ./log/log.cpp ./CGImysql/cgi_mysql.cpp
 	$(CXX) -o server  $^ $(CXXFLAGS) -lpthread -lmysqlclient
 # ./exe/testlog: ./test_scripts/test_log.cpp  ./localepoll/localepoll.cpp ./log/log.cpp
 # 	$(CXX) -o testlog  $^ $(CXXFLAGS) -lpthread

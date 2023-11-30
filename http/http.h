@@ -3,6 +3,7 @@
 
 #include "../localepoll/localepoll.h"
 #include "../log/log.h"
+#include "../CGImysql/cgi_mysql.h"
 
 #include <sys/types.h>
 #include <sys/unistd.h>
@@ -15,6 +16,7 @@
 #include <stdarg.h>
 #include <sys/mman.h>
 
+#include <string>
 #include <iostream>
 #include <map>
 
@@ -67,6 +69,8 @@ public:
     bool http_read();
     bool http_write();
 
+    void initmysql_result(CGImysql *connPool);
+
 private:
     void http_init();
     void unmap();
@@ -92,7 +96,7 @@ public:
     static int vepoll_fd;
     static int vuser_count;
     int vstate;
-    // MySQL *mysql;
+    MYSQL *mysql;
 
 private:
     int vsock_fd;

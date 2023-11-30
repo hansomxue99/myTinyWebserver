@@ -14,6 +14,7 @@ const char *error_500_form = "There was an unusual problem serving the request f
 
 int HTTP::vepoll_fd = -1;  // 提供 veepoll_fd 的定义
 int HTTP::vuser_count = 0;  // 提供 vuser_count 的定义
+map<string, string> users;
 
 void HTTP::http_init() {
     vmethod = GET;
@@ -58,6 +59,33 @@ void HTTP::http_init(int sockfd, const sockaddr_in &addr, char *root, int epoll_
     strcpy(sql_name, sqlname.c_str());
 
     http_init();
+}
+
+/*
+** Name: 初始化mysql
+** Description: 
+** Author: wkxue
+** Create time: 2023/11/30 12:46
+*/
+void HTTP::initmysql_result(CGImysql *connPool) {
+    MYSQL *mysql = NULL;
+    CGImysqlRAII mysqlcon(&mysql, connPool);
+    if (mysql_query(mysql, "SELECT username,passwd FROM user")) {
+        LOG_ERROR("SELECT error:%s\n", mysql_error(mysql));
+    }
+
+    MYSQL_RES *result = mysql_store_result(mysql);
+    int num_fields = mysql_num_fields(result);
+    MYSQL_FIELD *fields = mysql_fetch_fields(result);
+
+    while (MYSQL_ROW row = mysql_fetch_row(result)) {
+        string tmp1(row[0]);
+        string tmp2(row[1]);
+        users[tmp1] = tmp2;
+    }
+    for(auto it : users){
+	cout << it.first <<" "<< it.second <<endl;
+    }
 }
 
 /*
@@ -302,7 +330,7 @@ HTTP::HTTP_CODE HTTP::parse_request_line(char *text) {
     if (!vurl || vurl[0] != '/')    return BAD_REQUEST;
     // 根目录
     if (strlen(vurl) == 1) {
-        strcat(vurl, "home.html");  // 注意，这里将根目录固定了judge，长度超过5会有bug
+        strcat(vurl, "judge.html");  // 注意，这里将根目录固定了judge，长度超过5会有bug
     }
     vcheck_state = CHECK_STATE_HEADER;  // 转换check状态
     return NO_REQUEST;
@@ -363,12 +391,57 @@ HTTP::HTTP_CODE HTTP::parse_content(char *text) {
 ** Author: wkxue
 ** Create time: 2023/11/26 14:49
 */
-map<string, string> users;
 MutexLocker m_lock;
 HTTP::HTTP_CODE HTTP::do_request() {
     int len = strlen(doc_root);
     strcpy(vreal_file, doc_root);
     char *p = strrchr(vurl, '/');
+
+    if (cgi==1 && (*(p+1)=='2' || *(p+1)=='3')) {
+        char flag = vurl[1];
+        char *tmp = (char *)malloc(sizeof(char)*200);
+        strcpy(tmp, "/");
+        strcat(tmp, vurl+2);
+        free(tmp);
+        char name[100], passwd[100];
+        int i, j = 0;
+        for (i=5; vcontent_str[i]!='&'; ++i) {
+            name[i-5] = vcontent_str[i];
+        }
+        name[i-5] = '\0';
+
+        for (i=i+10; vcontent_str[i]!='\0'; ++i, ++j) {
+            passwd[j] = vcontent_str[i];
+        }
+        passwd[j] = '\0';
+
+        if (*(p+1) == '3') {
+            char *sql_insert = (char *)malloc(sizeof(char) * 200);
+            strcpy(sql_insert, "INSERT INTO user(username, passwd) VALUES(");
+            strcat(sql_insert, "'");
+            strcat(sql_insert, name);
+            strcat(sql_insert, "', '");
+            strcat(sql_insert, passwd);
+            strcat(sql_insert, "')");
+            if (users.find(name) == users.end()) {
+                m_lock.lock();
+                int res = mysql_query(mysql, sql_insert);
+                users.insert(pair<string, string>(name, passwd));
+                m_lock.unlock();
+
+                if (!res)   strcpy(vurl, "/log.html");
+                else strcpy(vurl, "/registerError.html");
+                cout << vurl << endl;
+            } else {
+                strcpy(vurl, "/registerError.html");
+            }
+        } else if (*(p+1) == '2') {
+            if (users.find(name) != users.end() && users[name] == passwd) 
+                strcpy(vurl, "/welcome.html");
+            else
+                strcpy(vurl, "/logError.html");
+        }
+    }
 
     if (*(p+1) == '0') {
         char *tmp = (char *)malloc(sizeof(char)*200);
