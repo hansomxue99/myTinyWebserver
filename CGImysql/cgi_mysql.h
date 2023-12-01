@@ -5,7 +5,7 @@
 #include "../log/log.h"
 
 #include <mysql/mysql.h>
-
+#include <pthread.h>
 #include <string>
 #include <list>
 using namespace std;

@@ -29,7 +29,7 @@ void LocalEpoll::add_epollfd(int epoll_fd, int fd, bool one_shot, int trig_mod) 
     epoll_event event;
     event.data.fd = fd;
     if (trig_mod == ET_MOD)
-        event.events = EPOLLIN | EPOLLRDHUP | EPOLLET;
+        event.events = EPOLLIN | EPOLLET | EPOLLRDHUP;
     else
         event.events = EPOLLIN | EPOLLRDHUP;
 
@@ -61,9 +61,9 @@ void LocalEpoll::modify_epollfd(int epoll_fd, int fd, int ev, int trig_mod) {
     epoll_event event;
     event.data.fd = fd;
     if (trig_mod == ET_MOD)
-        event.events = ev | EPOLLET | EPOLLRDHUP;
+        event.events = ev | EPOLLET | EPOLLONESHOT | EPOLLRDHUP;
     else 
-        event.events = ev | EPOLLRDHUP;
+        event.events = ev | EPOLLONESHOT | EPOLLRDHUP;
     epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
 }
 

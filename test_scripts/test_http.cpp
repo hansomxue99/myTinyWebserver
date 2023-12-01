@@ -25,7 +25,7 @@ int main()
 
     //初始化数据库连接池
     CGImysql *m_connPool = CGImysql::getInstance();
-    m_connPool->init("localhost", "debian-sys-maint", "3P2WbsOTREXbNMVC", "webserver_db", 3306, 8, 0);
+    m_connPool->init("localhost", "debian-sys-maint", "L57oYDftfQiuWAGu", "webdb", 3306, 8, 0);
 
 
     const char* ip = "0.0.0.0";
@@ -89,7 +89,7 @@ int main()
 
                 string user = "root";
                 string passwd = "ubuntu";
-                string databasename = "db_test";
+                string databasename = "webdb";
                 //LT模式
                 http_tmp.http_init(sockfd, client_map[sockfd], m_root, 0, 0, user, passwd, databasename);
                 

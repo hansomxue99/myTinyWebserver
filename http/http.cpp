@@ -22,7 +22,7 @@ void HTTP::http_init() {
     vurl = 0;
     vversion = 0;
 
-    // mysql = NULL;
+    mysql = NULL;
     vlinger = false;
     cgi = 0;
     vhost = 0;
@@ -36,6 +36,9 @@ void HTTP::http_init() {
     vwrite_idx = 0;
     vbyte_have_send = 0;
     vbyte_to_send = 0;
+
+    timer_flag = 0;
+    improv = 0;
 
     memset(vread_buf, '\0', READ_BUF_SIZE);
     memset(vwrite_buf, '\0', WRITE_BUF_SIZE);
@@ -82,9 +85,6 @@ void HTTP::initmysql_result(CGImysql *connPool) {
         string tmp1(row[0]);
         string tmp2(row[1]);
         users[tmp1] = tmp2;
-    }
-    for(auto it : users){
-	cout << it.first <<" "<< it.second <<endl;
     }
 }
 
@@ -188,8 +188,8 @@ bool HTTP::http_read() {
     // LT 读取模式：一次性读完
     if (LT_MOD == vepoll_mod) {
         byte_read = recv(vsock_fd, vread_buf+vread_idx, READ_BUF_SIZE-vread_idx, 0);
-        if (byte_read <= 0)  return false;
         vread_idx += byte_read;
+        if (byte_read <= 0)  return false;
     } else {    // ET模式：非阻塞循环读
         while (true) {
             byte_read = recv(vsock_fd, vread_buf+vread_idx, READ_BUF_SIZE-vread_idx, 0);
@@ -241,13 +241,17 @@ HTTP::HTTP_CODE HTTP::process_read() {
         case CHECK_STATE_HEADER:
             ret = parse_header(text);
             if (ret == BAD_REQUEST) return BAD_REQUEST;
-            else if (ret == GET_REQUEST)    return do_request();
+            else if (ret == GET_REQUEST)    {
+                return do_request();
+            }
             break;
         // 报文内容
         // buf + request_len + header_len
         case CHECK_STATE_CONTENT:
             ret = parse_content(text);
-            if (ret == GET_REQUEST) do_request();
+            if (ret == GET_REQUEST) {
+                return do_request();
+            }
             line_status = LINE_OPEN;
             break;
         default:
@@ -317,7 +321,7 @@ HTTP::HTTP_CODE HTTP::parse_request_line(char *text) {
     vversion = strpbrk(vurl, " \t");
     if (!vversion)  return BAD_REQUEST;
     *vversion++ = '\0';
-    vversion += strspn(vurl, " \t");    // 至此，method,url,version分离
+    vversion += strspn(vversion, " \t");    // 至此，method,url,version分离
     if (strcasecmp(vversion, "HTTP/1.1") != 0)  return BAD_REQUEST;
     // 解析URL
     if (strncasecmp(vurl, "http://", 7) == 0) {
@@ -393,16 +397,20 @@ HTTP::HTTP_CODE HTTP::parse_content(char *text) {
 */
 MutexLocker m_lock;
 HTTP::HTTP_CODE HTTP::do_request() {
-    int len = strlen(doc_root);
+    
     strcpy(vreal_file, doc_root);
-    char *p = strrchr(vurl, '/');
+    int len = strlen(doc_root);
+    const char *p = strrchr(vurl, '/');
 
     if (cgi==1 && (*(p+1)=='2' || *(p+1)=='3')) {
         char flag = vurl[1];
+
         char *tmp = (char *)malloc(sizeof(char)*200);
         strcpy(tmp, "/");
         strcat(tmp, vurl+2);
+        strncpy(vreal_file + len, tmp, FILENAME_LEN - len - 1);
         free(tmp);
+
         char name[100], passwd[100];
         int i, j = 0;
         for (i=5; vcontent_str[i]!='&'; ++i) {
@@ -431,7 +439,6 @@ HTTP::HTTP_CODE HTTP::do_request() {
 
                 if (!res)   strcpy(vurl, "/log.html");
                 else strcpy(vurl, "/registerError.html");
-                cout << vurl << endl;
             } else {
                 strcpy(vurl, "/registerError.html");
             }
@@ -445,7 +452,7 @@ HTTP::HTTP_CODE HTTP::do_request() {
 
     if (*(p+1) == '0') {
         char *tmp = (char *)malloc(sizeof(char)*200);
-        strcpy(tmp, "/register.html");
+        strcpy(tmp, "/register.html"); //register.html
         strncpy(vreal_file+len, tmp, strlen(tmp));
         free(tmp);
     } else if (*(p+1) == '1') {
@@ -523,7 +530,6 @@ bool HTTP::process_write(HTTP::HTTP_CODE ret) {
             add_header(strlen(ok_string));
             if (!add_content(ok_string))   return false;
         }
-        break;
     default:
         return false;
     }

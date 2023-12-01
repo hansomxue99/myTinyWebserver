@@ -70,6 +70,13 @@ public:
     bool http_write();
 
     void initmysql_result(CGImysql *connPool);
+    sockaddr_in *get_address()
+    {
+        return &vaddress;
+    }
+    int timer_flag;
+    int improv;
+
 
 private:
     void http_init();
