@@ -8,10 +8,8 @@ else
 
 endif
 
-server: main.cpp ./timer/lst_timer.cpp ./localepoll/localepoll.cpp ./http/http.cpp ./log/log.cpp threadpool/threadpool.cpp ./CGImysql/cgi_mysql.cpp webserver.cpp config.cpp
+server: main.cpp ./timer/timer.cpp ./localepoll/localepoll.cpp ./http/http.cpp ./log/log.cpp ./CGImysql/cgi_mysql.cpp ./webserver/webserver.cpp
 	$(CXX) -o server  $^ $(CXXFLAGS) -lpthread -lmysqlclient
-# ./exe/testlog: ./test_scripts/test_log.cpp  ./localepoll/localepoll.cpp ./log/log.cpp
-# 	$(CXX) -o testlog  $^ $(CXXFLAGS) -lpthread
 
 clean:
 	rm  -r server
