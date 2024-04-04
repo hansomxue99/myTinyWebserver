@@ -1,5 +1,32 @@
 #include "webserver.h"
 
+void self_worker(int vactor_model, HTTP *request, CGImysql *connPool) {
+    // cout << "=> running..." << endl;
+    if (1 == vactor_model) {
+        if (0 == request->vstate) {
+            if (request->http_read()) {
+                request->improv = 1;
+                CGImysqlRAII mysqlcon(&request->mysql, connPool);
+                request->http_process();
+            } else {
+                request->improv = 1;
+                request->timer_flag = 1;
+            }
+        } else {
+            if (request->http_write()) {
+                request->improv = 1;
+            } else {
+                request->improv = 1;
+                request->timer_flag = 1;
+            }
+        }
+    } else {
+        CGImysqlRAII mysqlcon(&request->mysql, connPool);
+        request->http_process();
+    }
+}
+
+
 WebServer::WebServer() {
     users = new HTTP[MAX_FD];
 
@@ -20,6 +47,7 @@ WebServer::~WebServer() {
     close(m_pipefd[0]);
     delete[] users;
     delete[] users_timer;
+    m_pool->shutdown();
     delete m_pool;
 }
 
@@ -52,7 +80,7 @@ void WebServer::init(int port, string user, string passwd, string dbname, int lo
         m_CONNTRIGMode = LT_MOD;
         break;
     case ET_ET:
-        m_LISTENTRIGMode = ET_ET;
+        m_LISTENTRIGMode = ET_MOD;
         m_CONNTRIGMode = ET_MOD;
         break;
     default:
@@ -74,7 +102,9 @@ void WebServer::init(int port, string user, string passwd, string dbname, int lo
     users->initmysql_result(m_connPool);
 
     // init thread_pool
-    m_pool = new ThreadPool<HTTP>(m_actormode, m_connPool, m_threadnum);
+    // m_pool = new ThreadPool<HTTP>(m_actormode, m_connPool, m_threadnum);
+    m_pool = new ThreadPool(m_threadnum);
+    m_pool->init();
 }
 
 void WebServer::eventListen() {
@@ -257,7 +287,11 @@ void WebServer::deal_read(int sockfd) {
 
     if (REACTOR == m_actormode) {
         if (timer)  adjust_timer(timer);
-        m_pool->append(users+sockfd, 0);
+        // m_pool->append(users+sockfd, 0);
+        (users+sockfd)->vstate = 0;
+        auto f = m_pool->submit(self_worker, m_actormode, users+sockfd, m_connPool);
+        // f.get();
+
         while (1) {
             if (1 == users[sockfd].improv) {
                 if (1 == users[sockfd].timer_flag) {
@@ -271,7 +305,11 @@ void WebServer::deal_read(int sockfd) {
     } else {
         if (users[sockfd].http_read()) {
             LOG_INFO("deal with the client(%s)", inet_ntoa(users[sockfd].get_address()->sin_addr));
-            m_pool->append_p(users+sockfd);
+            // m_pool->append_p(users+sockfd);
+            (users+sockfd)->vstate = 0;
+            auto f = m_pool->submit(self_worker, m_actormode, users+sockfd, m_connPool);
+            // f.get();
+
             if (timer)  adjust_timer(timer);
         } else {
             deal_timer(timer, sockfd);
@@ -285,7 +323,10 @@ void WebServer::deal_write(int sockfd) {
     if (REACTOR == m_actormode) {
         if (timer)  adjust_timer(timer);
 
-        m_pool->append(users + sockfd, 1);
+        // m_pool->append(users + sockfd, 1);
+        (users+sockfd)->vstate = 1;
+        auto f = m_pool->submit(self_worker, m_actormode, users+sockfd, m_connPool);
+        // f.get();
 
         while (1) {
             if (1 == users[sockfd].improv) {

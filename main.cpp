@@ -6,7 +6,7 @@ int main(void) {
     string databasename = "webdb";
 
     int port = 9006;
-    int log_write = LOG_SYN;
+    int log_write = LOG_ASYN;
     int trig_mode = LT_LT;
 
     int linger = 0;

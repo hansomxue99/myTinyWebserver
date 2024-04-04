@@ -13,8 +13,10 @@
 
 #include "../localepoll/localepoll.h"
 #include "../http/http.h"
-#include "../threadpool/threadpool.h"
-#include "../timer/timer.h"
+// #include "../threadpool/threadpool.h"
+#include "../threadpool/threadpool_new.h"
+// #include "../timer/timer.h"
+#include "../timer/timer_new.h"
 
 #define LT_LT   0
 #define LT_ET   1
@@ -78,7 +80,8 @@ public:
     int         m_sqlnum;
 
     //线程池
-    ThreadPool<HTTP> *m_pool;
+    // ThreadPool<HTTP> *m_pool;
+    ThreadPool *m_pool;
     int m_threadnum;
 
     // 定时器
